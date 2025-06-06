@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"os"
 	"strings"
+
+	"github.com/weirdwyrd/pokego/internal"
 )
 
 type cliCommand struct {
@@ -27,6 +29,24 @@ var commands = map[string]cliCommand{
 }
 
 func main() {
+	locationAreas, err := loadData()
+	if err != nil {
+		fmt.Println("Error fetching data, scanner will start regardless:", err)
+	}
+	startScanner()
+}
+
+func loadData() (*internal.DataLoad, error) {
+	pokeService := internal.NewPokeAPIService()
+	locationAreas, err := pokeService.GetLocationAreas()
+	if err != nil {
+		return nil, fmt.Errorf("failed to load data: %w", err)
+	}
+
+	return &internal.DataLoad{LocationAreaData: locationAreas}, nil
+}
+
+func startScanner() {
 	scanner := bufio.NewScanner(os.Stdin)
 
 	for {
