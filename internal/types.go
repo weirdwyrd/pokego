@@ -2,10 +2,20 @@ package internal
 
 // main types
 
+type CliState struct {
+	CurrentCommand CliCommand
+	CurrentPage    int
+
+	PrevCommand CliCommand
+	PrevPage    int
+
+	AvailableCommands map[string]CliCommand
+}
+
 type CliCommand struct {
 	Name        string
 	Description string
-	Callback    func() error
+	Callback    func(*CliState) error
 }
 
 type DataLoad struct {
@@ -25,11 +35,6 @@ type LocationArea struct {
 }
 
 // api service types
-
-type Config struct {
-	NextURL string `json:"next"`
-	PrevURL string `json:"prev"`
-}
 
 type LocationAreaAPIResponse struct {
 	Count    int            `json:"count"`

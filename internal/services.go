@@ -18,8 +18,9 @@ func NewPokeAPIService() *PokeAPIService {
 	}
 }
 
-func (s *PokeAPIService) GetLocationAreas() ([]LocationArea, error) {
-	url := fmt.Sprintf("%s/location-area", s.baseURL)
+func (s *PokeAPIService) GetLocationAreas(pageIndex int) ([]LocationArea, error) {
+	offset := pageIndex * 20
+	url := fmt.Sprintf("%s/location-area?offset=%d", s.baseURL, offset)
 	res, err := s.client.Get(url)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get location areas: %w", err)
@@ -36,5 +37,6 @@ func (s *PokeAPIService) GetLocationAreas() ([]LocationArea, error) {
 	}
 
 	locationAreas := decodedResponse.Results
+	fmt.Println("Loaded", len(locationAreas), "location areas")
 	return locationAreas, nil
 }
