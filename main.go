@@ -9,44 +9,38 @@ import (
 	"github.com/weirdwyrd/pokego/internal"
 )
 
-type cliCommand struct {
-	name        string
-	description string
-	callback    func() error
-}
-
-var commands = map[string]cliCommand{
+var commands = map[string]internal.CliCommand{
 	"help": {
-		name:        "help",
-		description: "Shows the help message",
-		callback:    commandHelp,
+		Name:        "help",
+		Description: "Shows the help message",
+		Callback:    commandHelp,
 	},
 	"exit": {
-		name:        "exit",
-		description: "Exits the program",
-		callback:    commandExit,
+		Name:        "exit",
+		Description: "Exits the program",
+		Callback:    commandExit,
 	},
 }
 
 func main() {
-	locationAreas, err := loadData()
+	data, err := loadData()
 	if err != nil {
 		fmt.Println("Error fetching data, scanner will start regardless:", err)
 	}
-	startScanner()
+	startScanner(data)
 }
 
-func loadData() (*internal.DataLoad, error) {
+func loadData() (internal.DataLoad, error) {
 	pokeService := internal.NewPokeAPIService()
 	locationAreas, err := pokeService.GetLocationAreas()
 	if err != nil {
-		return nil, fmt.Errorf("failed to load data: %w", err)
+		return internal.DataLoad{}, fmt.Errorf("failed to load data: %w", err)
 	}
 
-	return &internal.DataLoad{LocationAreaData: locationAreas}, nil
+	return internal.DataLoad{LocationAreaData: locationAreas}, nil
 }
 
-func startScanner() {
+func startScanner(data internal.DataLoad) {
 	scanner := bufio.NewScanner(os.Stdin)
 
 	for {
@@ -67,7 +61,7 @@ func startScanner() {
 			continue
 		}
 
-		err := command.callback()
+		err := command.Callback()
 		if err != nil {
 			fmt.Println("Error:", err)
 		}

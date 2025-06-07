@@ -18,7 +18,7 @@ func NewPokeAPIService() *PokeAPIService {
 	}
 }
 
-func (s *PokeAPIService) GetLocationAreas() (*[]LocationArea, error) {
+func (s *PokeAPIService) GetLocationAreas() ([]LocationArea, error) {
 	url := fmt.Sprintf("%s/location-area", s.baseURL)
 	res, err := s.client.Get(url)
 	if err != nil {
@@ -30,10 +30,11 @@ func (s *PokeAPIService) GetLocationAreas() (*[]LocationArea, error) {
 		return nil, fmt.Errorf("unexpected status code: %d", res.StatusCode)
 	}
 
-	var locationAreas []LocationArea
-	if err := json.NewDecoder(res.Body).Decode(&locationAreas); err != nil {
+	var decodedResponse LocationAreaAPIResponse
+	if err := json.NewDecoder(res.Body).Decode(&decodedResponse); err != nil {
 		return nil, fmt.Errorf("failed to decode location areas: %w", err)
 	}
 
-	return &locationAreas, nil
+	locationAreas := decodedResponse.Results
+	return locationAreas, nil
 }

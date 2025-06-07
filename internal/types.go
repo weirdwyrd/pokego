@@ -1,13 +1,18 @@
 package internal
 
+// main types
+
+type CliCommand struct {
+	Name        string
+	Description string
+	Callback    func() error
+}
+
 type DataLoad struct {
 	LocationAreaData []LocationArea `json:"location_area_data"`
 }
 
-type Config struct {
-	NextURL string `json:"next"`
-	PrevURL string `json:"prev"`
-}
+// data types
 
 type LocationArea struct {
 	ID        int    `json:"id"`
@@ -17,4 +22,18 @@ type LocationArea struct {
 	// Location             NamedAPIResource      `json:"location"`
 	// Names                []Name               `json:"names"`
 	// PokemonEncounters    []PokemonEncounter   `json:"pokemon_encounters"`
+}
+
+// api service types
+
+type Config struct {
+	NextURL string `json:"next"`
+	PrevURL string `json:"prev"`
+}
+
+type LocationAreaAPIResponse struct {
+	Count    int            `json:"count"`
+	Next     string         `json:"next"`
+	Previous string         `json:"previous"`
+	Results  []LocationArea `json:"results"`
 }
