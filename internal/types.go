@@ -3,12 +3,12 @@ package internal
 // main types
 
 type CliState struct {
-	CurrentCommand CliCommand
-	CurrentPage    int
-
-	PrevCommand CliCommand
-	PrevPage    int
-
+	CurrentCommand    CliCommand
+	CurrentPage       int
+	PrevCommand       CliCommand
+	PrevPage          int
+	LoadedData        DataLoad
+	PageLength        int
 	AvailableCommands map[string]CliCommand
 }
 

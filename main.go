@@ -24,6 +24,8 @@ func initCli() *internal.CliState {
 		CurrentPage:    0,
 		PrevCommand:    internal.CliCommand{},
 		PrevPage:       0,
+		LoadedData:     internal.DataLoad{},
+		PageLength:     20,
 		AvailableCommands: map[string]internal.CliCommand{
 			"help": {
 				Name:        "help",
@@ -88,9 +90,17 @@ func startScanner(cliState *internal.CliState) {
 
 		// update cli State
 		cliState.PrevCommand = cliState.CurrentCommand
-		cliState.PrevPage = cliState.CurrentPage
 		cliState.CurrentCommand = command
-		cliState.CurrentPage = 0
+		cliState.PrevPage = cliState.CurrentPage
+
+		// if the last command was same as the current command,
+		if cliState.CurrentCommand.Name == cliState.PrevCommand.Name {
+			//increment the page number, to we can fetch the next page of data
+			cliState.CurrentPage++
+		} else {
+			// otherwise reset the page number
+			cliState.CurrentPage = 0
+		}
 
 		err := command.Callback(cliState)
 		if err != nil {
@@ -123,7 +133,39 @@ func commandExit(cliState *internal.CliState) error {
 }
 
 func commandMap(cliState *internal.CliState) error {
-	fmt.Println("Map")
+	fmt.Println("Map", cliState)
+
+	// need to handle page bounds
+	pageStartIndex := cliState.CurrentPage * cliState.PageLength
+	pageEndIndex := pageStartIndex + cliState.PageLength
+
+	// if we have not loaded the data before, we need to fetch it
+	if cliState.LoadedData.LocationAreaData == nil || len(cliState.LoadedData.LocationAreaData) <= pageStartIndex {
+		pokeService := internal.NewPokeAPIService()
+		locationAreaPage, err := pokeService.GetLocationAreas(cliState.CurrentPage)
+		if err != nil {
+			return fmt.Errorf("failed to load data: %w", err)
+		}
+		// need to check to make sure array exists
+		if cliState.LoadedData.LocationAreaData == nil {
+			cliState.LoadedData.LocationAreaData = []internal.LocationArea{}
+		}
+		// add the new data page to the loaded data
+		cliState.LoadedData.LocationAreaData = append(cliState.LoadedData.LocationAreaData, locationAreaPage...)
+	}
+
+	// TODO edge case what if we reach the end of the data from API? do not want to append the last page forever, need to test.
+	// also need to have way to inform user that there is no more to load / display
+
+	// we know we at least have the start of the page, we need to see if we have a full page
+	if len(cliState.LoadedData.LocationAreaData) < pageEndIndex {
+		pageEndIndex = len(cliState.LoadedData.LocationAreaData)
+	}
+	// now print the page
+	for _, locationArea := range cliState.LoadedData.LocationAreaData[pageStartIndex:pageEndIndex] {
+		fmt.Println(locationArea.Name)
+	}
+
 	return nil
 }
 
