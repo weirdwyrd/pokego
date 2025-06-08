@@ -89,6 +89,10 @@ func startScanner(cliState *internal.CliState) {
 		}
 
 		// update cli State
+		// if command.Name != "undo" {
+		//	undo isn't working quite right, TODO fix
+		// }
+
 		cliState.PrevCommand = cliState.CurrentCommand
 		cliState.CurrentCommand = command
 		cliState.PrevPage = cliState.CurrentPage
@@ -102,6 +106,7 @@ func startScanner(cliState *internal.CliState) {
 			cliState.CurrentPage = 0
 		}
 
+		fmt.Println("prev page", cliState.PrevPage, "current page", cliState.CurrentPage)
 		err := command.Callback(cliState)
 		if err != nil {
 			fmt.Println("Error:", err)
@@ -133,8 +138,6 @@ func commandExit(cliState *internal.CliState) error {
 }
 
 func commandMap(cliState *internal.CliState) error {
-	fmt.Println("Map", cliState)
-
 	// need to handle page bounds
 	pageStartIndex := cliState.CurrentPage * cliState.PageLength
 	pageEndIndex := pageStartIndex + cliState.PageLength
@@ -169,12 +172,28 @@ func commandMap(cliState *internal.CliState) error {
 	return nil
 }
 
+// this doesn't really work either, because we are just looking back one command,
+// instead we need to either store a full history and then use this to jump all the way back to the last map
+// kinda like a undo-jump.
+// alternatively we can keep a MapPage somewhere and then just use map commands to move those pages, and not
+// interact with the full undo history
 func commandMapBack(cliState *internal.CliState) error {
-	fmt.Println("Map Back")
+	fmt.Println(cliState.PrevCommand.Name, cliState.PrevPage)
+	if cliState.PrevCommand.Name == "map" && cliState.PrevPage > 0 {
+		cliState.CurrentPage = cliState.PrevPage - 1
+		commandMap(cliState)
+	} else {
+		fmt.Println("No previous page to go back to")
+	}
 	return nil
 }
 
+// undo does not really work because we only go back one page, and the page handling is messed up
+// if we want to fix this, we should create an array or a tree like structure to store history of
+// command inputs and outputs, that way rather than re-run the command we can just replicate the output?
+// if we don't store the outputs at the least we store inputs
 func commandUndo(cliState *internal.CliState) error {
+	fmt.Println("prev page", cliState.PrevPage, "current page", cliState.CurrentPage)
 	if cliState.PrevCommand.Name != "" {
 		// reset state
 		cliState.CurrentCommand = cliState.PrevCommand
