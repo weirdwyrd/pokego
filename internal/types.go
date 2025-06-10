@@ -5,17 +5,22 @@ package internal
 type CliState struct {
 	CurrentCommand    CliCommand
 	CurrentPage       int
-	PrevCommand       CliCommand
-	PrevPage          int
+	CommandHistory    []CliEvent
 	LoadedData        DataLoad
 	PageLength        int
 	AvailableCommands map[string]CliCommand
 }
 
+type CliEvent struct {
+	Command CliCommand
+	Page    int
+	Output  string
+}
+
 type CliCommand struct {
 	Name        string
 	Description string
-	Callback    func(*CliState) error
+	Callback    func(*CliState) (string, error)
 }
 
 type DataLoad struct {
