@@ -1,12 +1,19 @@
 package internal
 
+// Cache defines the interface for caching operations
+type Cache interface {
+	Get(key string) ([]byte, bool)
+	Add(key string, val []byte)
+}
+
 // main types
 
 type CliState struct {
-	CurrentCommand    CliCommand
-	CurrentPage       int
-	CommandHistory    []CliEvent
-	LoadedData        DataLoad
+	CurrentCommand CliCommand
+	CurrentPage    int
+	CommandHistory []CliEvent
+	// LoadedData        DataLoad
+	Cache             Cache
 	PageLength        int
 	AvailableCommands map[string]CliCommand
 }
@@ -23,9 +30,9 @@ type CliCommand struct {
 	Callback    func(*CliState) (string, error)
 }
 
-type DataLoad struct {
-	LocationAreaData []LocationArea `json:"location_area_data"`
-}
+// type DataLoad struct {
+// 	LocationAreaData []LocationArea `json:"location_area_data"`
+// }
 
 // data types
 

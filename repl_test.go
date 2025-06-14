@@ -2,6 +2,7 @@ package main
 
 import "testing"
 
+// TestCleanInput tests the input cleaning functionality
 func TestCleanInput(t *testing.T) {
 	tests := []struct {
 		input    string
