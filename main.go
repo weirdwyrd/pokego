@@ -30,7 +30,6 @@ func initCli() *internal.CliState {
 	return &internal.CliState{
 		CurrentCommand: internal.CliCommand{},
 		CurrentPage:    0,
-		// LoadedData:     internal.DataLoad{},
 		Cache:          cache,
 		PageLength:     20,
 		CommandHistory: []internal.CliEvent{},
@@ -55,6 +54,11 @@ func initCli() *internal.CliState {
 				Description: "Goes back one page of the map",
 				Callback:    commandMapBack,
 			},
+			"explore": {
+				Name:        "explore",
+				Description: "Explore the map",
+				Callback:    commandExplore,
+			},
 			// "undo": {
 			// 	Name:        "undo",
 			// 	Description: "Undoes the last command",
@@ -78,7 +82,7 @@ func startScanner(cliState *internal.CliState) {
 		}
 
 		commandInput := cleaned[0]
-
+		// fetch command
 		command, exists := cliState.AvailableCommands[commandInput]
 		if !exists {
 			fmt.Println("Unknown command")
@@ -89,7 +93,13 @@ func startScanner(cliState *internal.CliState) {
 		// update cli State
 		cliState.CurrentCommand = command
 
-		output, err := command.Callback(cliState)
+		// check for command arguments
+		var commandArgs []string
+		if len(cleaned) > 1 {
+			commandArgs = cleaned[1:]
+		}
+
+		output, err := command.Callback(cliState, commandArgs)
 
 		if err != nil {
 			fmt.Println("Error:", err)
@@ -99,12 +109,13 @@ func startScanner(cliState *internal.CliState) {
 		}
 
 		// if command.Name != "undo" {
-		// 	// Record the event in history
-		// 	cliState.CommandHistory = append(cliState.CommandHistory, internal.CliEvent{
-		// 		Command: command,
-		// 		Page:    cliState.CurrentPage,
-		// 		Output:  output,
-		// 	})
+		// Record the event in history
+		cliState.CommandHistory = append(cliState.CommandHistory, internal.CliEvent{
+			Command:     command,
+			CommandArgs: commandArgs,
+			Page:        cliState.CurrentPage,
+			Output:      output,
+		})
 		// }
 	}
 }
@@ -114,7 +125,7 @@ func cleanInput(text string) []string {
 	return words
 }
 
-func commandHelp(cliState *internal.CliState) (string, error) {
+func commandHelp(cliState *internal.CliState, commandArgs []string) (string, error) {
 	output := "Welcome to the Pokedex!\n"
 	output += "Usage:\n\n"
 	for _, command := range cliState.AvailableCommands {
@@ -123,15 +134,15 @@ func commandHelp(cliState *internal.CliState) (string, error) {
 	return output, nil
 }
 
-func commandExit(cliState *internal.CliState) (string, error) {
+func commandExit(cliState *internal.CliState, commandArgs []string) (string, error) {
 	fmt.Println("Closing the Pokedex... Goodbye!")
 	os.Exit(0)
 	return "", nil
 }
 
-func commandMap(cliState *internal.CliState) (string, error) {
+func commandMap(cliState *internal.CliState, commandArgs []string) (string, error) {
 	//increment page
-	output, err := printPage(cliState)
+	output, err := printLocationAreasPage(cliState)
 	if err != nil {
 		return "", err
 	}
@@ -140,20 +151,20 @@ func commandMap(cliState *internal.CliState) (string, error) {
 }
 
 // if we want this to work with an undo system, we might need to do a jump back
-func commandMapBack(cliState *internal.CliState) (string, error) {
+func commandMapBack(cliState *internal.CliState, commandArgs []string) (string, error) {
 	if cliState.CurrentPage > 1 {
 		cliState.CurrentPage = cliState.CurrentPage - 2
 	} else {
 		return "no page to go back to", nil
 	}
-	output, err := printPage(cliState)
+	output, err := printLocationAreasPage(cliState)
 	if err != nil {
 		return "", err
 	}
 	return output, nil
 }
 
-func printPage(cliState *internal.CliState) (string, error) {
+func printLocationAreasPage(cliState *internal.CliState) (string, error) {
 	// Check if we have the data in cache
 	// if cliState.Cache != nil {
 	cacheKey := fmt.Sprintf("location_areas_%d", cliState.CurrentPage)
@@ -190,6 +201,56 @@ func printPage(cliState *internal.CliState) (string, error) {
 		output += locationArea.Name + "\n"
 	}
 	return output, nil
+}
+
+func commandExplore(cliState *internal.CliState, commandArgs []string) (string, error) {
+	if len(commandArgs) == 0 {
+		return "Please provide a location area to explore", nil
+	}
+
+	locationAreaName := commandArgs[0]
+	fmt.Printf("exploring %s ...\n", locationAreaName)
+	locationArea, err := getLocationArea(cliState, locationAreaName)
+	if err != nil {
+		return "", fmt.Errorf("explore failed, %w", err)
+	}
+
+	// Use a map operation to collect Pokemon names
+	pokemonNames := make([]string, len(locationArea.PokemonEncounters))
+	for i, encounter := range locationArea.PokemonEncounters {
+		pokemonNames[i] = encounter.Pokemon.Name
+	}
+
+	return fmt.Sprintf("Found Pokemon:\n%s", strings.Join(pokemonNames, "\n")), nil
+}
+
+func getLocationArea(cliState *internal.CliState, locationAreaName string) (internal.LocationArea, error) {
+	// Check cache first
+	cacheKey := fmt.Sprintf("location_area_%s", locationAreaName)
+	cachedData, exists := cliState.Cache.Get(cacheKey)
+
+	if !exists {
+		pokeService := internal.NewPokeAPIService()
+		locationAreaData, err := pokeService.GetLocationArea(locationAreaName)
+		if err != nil {
+			return internal.LocationArea{}, fmt.Errorf("explore failed, %w", err)
+		}
+
+		// Convert the data to JSON for caching
+		jsonData, err := json.Marshal(locationAreaData)
+		if err != nil {
+			return internal.LocationArea{}, fmt.Errorf("failed to marshal data for cache: %w", err)
+		}
+		cliState.Cache.Add(cacheKey, jsonData)
+		cachedData = jsonData
+	}
+
+	var locationArea internal.LocationArea
+	if err := json.Unmarshal(cachedData, &locationArea); err != nil {
+		return internal.LocationArea{}, fmt.Errorf("failed to unmarshal cached data: %w", err)
+	}
+
+	return locationArea, nil
 }
 
 // func commandUndo(cliState *internal.CliState) (string, error) {
