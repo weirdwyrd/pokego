@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"encoding/json"
 	"fmt"
+	"math/rand"
 	"os"
 	"strings"
 	"time"
@@ -33,6 +34,7 @@ func initCli() *internal.CliState {
 		Cache:          cache,
 		PageLength:     20,
 		CommandHistory: []internal.CliEvent{},
+		Pokedex:        make(map[string]internal.Pokemon),
 		AvailableCommands: map[string]internal.CliCommand{
 			"help": {
 				Name:        "help",
@@ -58,6 +60,21 @@ func initCli() *internal.CliState {
 				Name:        "explore",
 				Description: "Explore the map",
 				Callback:    commandExplore,
+			},
+			"catch": {
+				Name:        "catch",
+				Description: "Attempts to catch a Pokemon",
+				Callback:    commandCatch,
+			},
+			"inspect": {
+				Name:        "inspect",
+				Description: "Inspect a Pokemon in your Pokedex",
+				Callback:    commandInspect,
+			},
+			"pokedex": {
+				Name:        "pokedex",
+				Description: "Gotta catch em all!",
+				Callback:    commandPokedex,
 			},
 			// "undo": {
 			// 	Name:        "undo",
@@ -251,6 +268,74 @@ func getLocationArea(cliState *internal.CliState, locationAreaName string) (inte
 	}
 
 	return locationArea, nil
+}
+
+func commandCatch(cliState *internal.CliState, commandArgs []string) (string, error) {
+	pokemonName := commandArgs[0]
+	if pokemonName == "" {
+		return "What pokemon are you trying to catch?", nil
+	}
+
+	fmt.Printf("Throwing a Pokeball at %s...\n", pokemonName)
+	pokemon, err := getPokemon(cliState, pokemonName)
+	if err != nil {
+		return "", err // err already formatted in getPokemon
+	}
+
+	chanceToCatch := rand.Intn(100) - min(95, (pokemon.BaseExperience/10))
+	if chanceToCatch > 0 {
+		cliState.Pokedex[pokemonName] = pokemon
+		return fmt.Sprintf("You caught %s!\n", pokemonName), nil
+	}
+	return fmt.Sprintf("You missed %s!\n", pokemonName), nil
+}
+
+func getPokemon(cliState *internal.CliState, pokemonName string) (internal.Pokemon, error) {
+	cacheKey := fmt.Sprintf("pokemon_%s", pokemonName)
+	cachedData, exists := cliState.Cache.Get(cacheKey)
+
+	if !exists {
+		pokeService := internal.NewPokeAPIService()
+		pokemonData, err := pokeService.GetPokemon(pokemonName)
+		if err != nil {
+			return internal.Pokemon{}, fmt.Errorf("failed to get pokemon: %w", err)
+		}
+		// fmt.Printf("pokemonData: %+v\n", pokemonData)
+		jsonData, err := json.Marshal(pokemonData)
+		if err != nil {
+			return internal.Pokemon{}, fmt.Errorf("failed to marshal data for cache: %w", err)
+		}
+		cliState.Cache.Add(cacheKey, jsonData)
+		cachedData = jsonData
+	}
+	var pokemon internal.Pokemon
+	if err := json.Unmarshal(cachedData, &pokemon); err != nil {
+		return internal.Pokemon{}, fmt.Errorf("failed to unmarshal cached data: %w", err)
+	}
+
+	return pokemon, nil
+}
+
+func commandInspect(cliState *internal.CliState, commandArgs []string) (string, error) {
+	if len(commandArgs) == 0 {
+		return "Please provide the name of a Pokemon to inspect", nil
+	}
+	pokemonName := commandArgs[0]
+	pokemon, exists := cliState.Pokedex[pokemonName]
+	if !exists {
+		return fmt.Sprintf("You don't have %s in your Pokedex", pokemonName), nil
+	}
+
+	pokemonJson, _ := json.MarshalIndent(pokemon, "", "  ")
+	return fmt.Sprintf("Pokemon %s:\n%s\n", pokemonName, pokemonJson), nil
+}
+
+func commandPokedex(cliState *internal.CliState, commandArgs []string) (string, error) {
+	output := "Gotta catch em all!\n"
+	for pokemonName, _ := range cliState.Pokedex {
+		output += fmt.Sprintf(" - %s\n", pokemonName)
+	}
+	return output, nil
 }
 
 // func commandUndo(cliState *internal.CliState) (string, error) {
